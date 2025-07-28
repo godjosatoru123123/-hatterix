@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chatterix</title>
+  <style>
+    body { font-family: Arial; background: #111; color: #eee; padding: 20px; }
+    #chat, #users { margin: 10px 0; }
+    input, button { padding: 10px; font-size: 16px; }
+    #messages { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: scroll; background: #222; }
+    #usersList { background: #222; padding: 10px; border: 1px solid #444; }
+    .friend { color: #0f0; }
+  </style>
+</head>
+<body>
+  <h1>Chatterix 🔥</h1>
+
+  <div id="auth">
+    <label>Username: <input type="text" id="username"></label>
+    <button onclick="login()">Join Chat</button>
+  </div>
+
+  <div id="chat" style="display:none;">
+    <h2>Chat</h2>
+    <div id="messages"></div>
+    <input type="text" id="messageInput" placeholder="Type a message">
+    <button onclick="sendMessage()">Send</button>
+
+    <h2>Users Online</h2>
+    <div id="usersList"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXzlr0Saqbv2Hk176EeGAuLTk6P1jUVdM",
+      authDomain: "chatterix-123.firebaseapp.com",
+      databaseURL: "https://chatterix-123-default-rtdb.firebaseio.com",
+      projectId: "chatterix-123",
+      storageBucket: "chatterix-123.firebasestorage.app",
+      messagingSenderId: "877024977371",
+      appId: "1:877024977371:web:eab1bec6d6ed166181c7fe",
+      measurementId: "G-QK732VPPG3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentUser = null;
+
+    // Автоматический вход
+    window.onload = () => {
+      const savedUser = localStorage.getItem("username");
+      if (savedUser) {
+        document.getElementById("username").value = savedUser;
+        login();
+      }
+    };
+
+    function login() {
+      const name = document.getElementById("username").value.trim();
+      if (!name) return alert("Enter your name!");
+      currentUser = name;
+      localStorage.setItem("username", name);
+
+      db.ref("users/" + name).set(true);
+      document.getElementById("auth").style.display = "none";
+      document.getElementById("chat").style.display = "block";
+      loadMessages();
+      updateUsers();
+    }
+
+    function sendMessage() {
+      const msg = document.getElementById("messageInput").value.trim();
+      if (!msg) return;
+      const time = Date.now();
+      db.ref("messages/" + time).set({
+        name: currentUser,
+        text: msg
+      });
+      document.getElementById("messageInput").value = "";
+    }
+
+    function loadMessages() {
+      db.ref("messages").on("value", (snapshot) => {
+        const messages = snapshot.val();
+        const container = document.getElementById("messages");
+        container.innerHTML = "";
+        for (let key in messages) {
+          const { name, text } = messages[key];
+          const el = document.createElement("div");
+          el.textContent = name + ": " + text;
+          container.appendChild(el);
+        }
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+
+    function updateUsers() {
+      db.ref("users").on("value", (snapshot) => {
+        const users = snapshot.val();
+        const list = document.getElementById("usersList");
+        list.innerHTML = "";
+
+        db.ref("friends/" + currentUser).once("value", snap => {
+          const friends = snap.val() || {};
+
+          for (let user in users) {
+            if (user === currentUser) continue;
+
+            const el = document.createElement("div");
+            el.textContent = user;
+            if (friends[user]) el.classList.add("friend");
+
+            const btn = document.createElement("button");
+            btn.textContent = friends[user] ? "✓ Friend" : "Add Friend";
+            btn.onclick = () => {
+              db.ref("friends/" + currentUser + "/" + user).set(true);
+            };
+            el.appendChild(btn);
+            list.appendChild(el);
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>
